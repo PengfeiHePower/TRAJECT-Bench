@@ -83,6 +83,11 @@ python evaluation/claude_tool_evaluation.py -model claude_v37 -tool_select domai
 <sup>3</sup> **Trajectory-aware metrics**: Provides comprehensive evaluation beyond final results, measuring the quality of the entire tool-calling trajectory  
 <sup>4</sup> **Tool-pool regimes**: Supports diverse evaluation strategies including whole toolset, domain-specific pools, retrieval-based selection, and fixed small-scale tool pools
 
+![TRAJECT-Bench Illustration](assets/illustration.png)
+
+
+
+
 
 
 ### 🔗 Quick Links
