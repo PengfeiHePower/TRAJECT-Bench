@@ -89,7 +89,6 @@ The following figure shows the data synthesis of TRAJECT-Bench, including *paral
 
 <figure>
   <img src="assets/illustration.png" alt="TRAJECT-Bench Illustration" width="100%">
-
 </figure>
 
 
