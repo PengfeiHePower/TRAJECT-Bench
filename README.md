@@ -84,13 +84,13 @@ python evaluation/claude_tool_evaluation.py -model claude_v37 -tool_select domai
 <sup>4</sup> **Tool-pool regimes**: Supports diverse evaluation strategies including whole toolset, domain-specific pools, retrieval-based selection, and fixed small-scale tool pools
 
 
+**Data synthesis overview**
+The following figure shows the data synthesis of TRAJECT-Bench, including *parallel* and *sequential*.
+
 <figure>
   <img src="assets/illustration.png" alt="TRAJECT-Bench Illustration" width="100%">
-  <figcaption><strong>Data synthesis overview</strong> - TRAJECT-Bench illustration showing the comprehensive evaluation framework for tool-using language models.</figcaption>
+
 </figure>
-
-
-
 
 
 
