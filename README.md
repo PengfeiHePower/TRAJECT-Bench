@@ -384,11 +384,11 @@ We welcome contributions to improve the benchmark:
 If you use this benchmark in your research, please cite:
 
 ```bibtex
-@misc{toolbenchmark2024,
-  title={Tool-Using Language Model Benchmark},
-  author={ToolBench Team},
-  year={2024},
-  url={https://github.com/your-repo}
+@article{he2025traject,
+  title={TRAJECT-Bench: A Trajectory-Aware Benchmark for Evaluating Agentic Tool Use},
+  author={He, Pengfei and Dai, Zhenwei and He, Bing and Liu, Hui and Tang, Xianfeng and Lu, Hanqing and Li, Juanhui and Ding, Jiayuan and Mukherjee, Subhabrata and Wang, Suhang and others},
+  journal={arXiv preprint arXiv:2510.04550},
+  year={2025}
 }
 ``` -->
 
