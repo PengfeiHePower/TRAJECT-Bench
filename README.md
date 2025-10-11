@@ -318,6 +318,11 @@ git clone <repository-url>
 cd ToolData-public
 pip install -r requirements.txt
 ```
+### ⚠️ Before running
+
+1. Setup models in utils/model_providers.py
+2. The execuation of tools relies on endpoints provided by [ToolBench](https://github.com/OpenBMB/ToolBench). Thanks to their contribution!
+
 
 ### 🧪 Running Evaluations (to finish soon)
 
