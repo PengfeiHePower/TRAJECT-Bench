@@ -85,6 +85,7 @@ python evaluation/claude_tool_evaluation.py -model claude_v37 -tool_select domai
 
 
 **Data synthesis overview**
+
 The following figure shows the data synthesis of TRAJECT-Bench, including *parallel* and *sequential*.
 
 <figure>
