@@ -27,10 +27,29 @@ gemini_key = os.getenv('GEMINI_API_KEY')
 openai_key = os.getenv('OPENAI_API_KEY')
 deepseek_key = os.getenv('DEEPSEEK_API')
 moonshot_key = os.getenv('MOONSHOT_API_KEY')
+# Support both ANTHROPIC_API_KEY and CLAUDE_API_KEY for backward compatibility
+anthropic_key = os.getenv('ANTHROPIC_API_KEY') or os.getenv('CLAUDE_API_KEY')  # Optional for Claude API
 
-if not gemini_key or not openai_key or not deepseek_key or not moonshot_key:
-    print("❌ ERROR: API keys missing from .env file!")
-    print("Required: GEMINI_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, MOONSHOT_API_KEY")
+# Note: ANTHROPIC_API_KEY/CLAUDE_API_KEY is optional - only required if using Claude API models
+# Bedrock Claude models don't need this key
+# DEEPSEEK_API and MOONSHOT_API_KEY are only required if using those models
+required_keys_missing = []
+if not gemini_key:
+    required_keys_missing.append('GEMINI_API_KEY')
+if not openai_key:
+    required_keys_missing.append('OPENAI_API_KEY')
+# DeepSeek and Moonshot are optional - only needed if using those models
+# if not deepseek_key:
+#     required_keys_missing.append('DEEPSEEK_API')
+# if not moonshot_key:
+#     required_keys_missing.append('MOONSHOT_API_KEY')
+
+if required_keys_missing:
+    print("❌ ERROR: Required API keys missing from .env file!")
+    print(f"Missing: {', '.join(required_keys_missing)}")
+    print("Required: GEMINI_API_KEY, OPENAI_API_KEY")
+    print("Optional: DEEPSEEK_API, MOONSHOT_API_KEY, ANTHROPIC_API_KEY/CLAUDE_API_KEY")
+    print("Note: ANTHROPIC_API_KEY/CLAUDE_API_KEY is only needed for Claude API models (not Bedrock)")
     import sys
     sys.exit(1)
 
@@ -216,11 +235,22 @@ bedrock_meta = {
     "gpt-oss-120b": "openai.gpt-oss-120b-1:0"
 }
 
+# Claude API models (using Anthropic API key, not Bedrock)
+claude_api_models = {
+    "claude_api_v4": "claude-sonnet-4-20250514",
+    "claude_api_v37": "claude-3-7-sonnet-20250219",
+    "claude_api_3_5_sonnet": "claude-3-5-sonnet-20241022",
+    "claude_api_3_5_haiku": "claude-3-5-haiku-20241022",
+    "claude_api_3_opus": "claude-3-opus-20240229",
+    "claude_api_3_sonnet": "claude-3-sonnet-20240229",
+    "claude_api_3_haiku": "claude-3-haiku-20240307"
+}
+
 gemini_models = {
     "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", 
     "gemini-2.0-flash-lite", "gemini-1.5-pro", "gemini-1.5-flash", 
     "gemini-1.5-flash-8b", "gemini-1.0-pro"
-}
+}  # Set of Gemini model names
 
 openai_models = {
     "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-4-32k",
@@ -494,6 +524,57 @@ def generate_content_moonshot(model: str, prompt: str, max_tokens: int = 8000, t
         else:
             raise e
 
+def generate_content_claude_api(model: str, prompt: str, max_tokens: int = 8000, temperature: float = 0.7, stop: Optional[list] = None) -> str:
+    """Generate content using Anthropic Claude API (not Bedrock)."""
+    try:
+        from anthropic import Anthropic
+        
+        if not anthropic_key:
+            raise ValueError("ANTHROPIC_API_KEY is required for Claude API models. Set it in your .env file.")
+        
+        client = Anthropic(api_key=anthropic_key)
+        
+        if model not in claude_api_models:
+            raise ValueError(f"Model {model} not found in claude_api_models")
+        
+        model_id = claude_api_models[model]
+        
+        params = {
+            "model": model_id,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "messages": [{"role": "user", "content": prompt}]
+        }
+        
+        # Only add stop_sequences if provided and not empty
+        if stop is not None and len(stop) > 0:
+            params["stop_sequences"] = stop
+        
+        response = client.messages.create(**params)
+        
+        # Extract text from response
+        if response.content and len(response.content) > 0:
+            # Claude API returns content as a list of content blocks
+            # Usually the first block is text
+            if hasattr(response.content[0], 'text'):
+                return response.content[0].text
+            elif isinstance(response.content[0], dict) and 'text' in response.content[0]:
+                return response.content[0]['text']
+            else:
+                # Fallback: try to get text from the content
+                return str(response.content[0])
+        else:
+            raise ValueError("Empty response from Claude API")
+            
+    except Exception as e:
+        # Convert to appropriate exception types for retry logic
+        if "rate_limit" in str(e).lower() or "429" in str(e) or "quota" in str(e).lower():
+            raise RateLimitError(str(e))
+        elif "timeout" in str(e).lower() or "connection" in str(e).lower():
+            raise APIError(str(e))
+        else:
+            raise e
+
 
 # Retry-enabled wrapper functions
 @retry_with_backoff(max_retries=3, base_delay=2.0)
@@ -531,6 +612,11 @@ def generate_content_moonshot_with_retry(model, prompt, max_tokens=8000, tempera
     """Wrapper with retry logic for Moonshot generation."""
     return generate_content_moonshot(model, prompt, max_tokens, temperature, stop)
 
+@retry_with_backoff(max_retries=3, base_delay=2.0)
+def generate_content_claude_api_with_retry(model, prompt, max_tokens=8000, temperature=0.7, stop=None):
+    """Wrapper with retry logic for Claude API generation."""
+    return generate_content_claude_api(model, prompt, max_tokens, temperature, stop)
+
 def generate_content(model: str, prompt: str, temperature: Optional[float] = None) -> str:
     """
     Main function to generate content using any supported model.
@@ -554,6 +640,9 @@ def generate_content(model: str, prompt: str, temperature: Optional[float] = Non
     elif model in bedrock_meta:
         temp = temperature if temperature is not None else 0.3
         return generate_content_bedrock(model, prompt, max_tokens=8000, temperature=temp)
+    elif model in claude_api_models:
+        temp = temperature if temperature is not None else 0.7
+        return generate_content_claude_api(model, prompt, max_tokens=8000, temperature=temp)
     elif model in openai_models:
         return generate_content_openai(model, prompt)
     elif model in deepseek_models:
@@ -594,6 +683,9 @@ def generate_content_with_retry(model: str, prompt: str, temperature: Optional[f
     elif model in bedrock_meta:
         temp = temperature if temperature is not None else 0.3
         return generate_content_bedrock_with_retry(model, prompt, max_tokens=8000, temperature=temp, stop=stop)
+    elif model in claude_api_models:
+        temp = temperature if temperature is not None else 0.7
+        return generate_content_claude_api_with_retry(model, prompt, max_tokens=8000, temperature=temp, stop=stop)
     elif model in openai_models:
         temp = temperature if temperature is not None else 0.7
         return generate_content_openai_with_retry(model, prompt, max_tokens=8000, temperature=1.0, stop=stop)
@@ -615,6 +707,7 @@ def get_supported_models():
         "vllm": list(vllm_api_meta.keys()),
         "gemini": list(gemini_models),
         "bedrock": list(bedrock_meta.keys()),
+        "claude_api": list(claude_api_models.keys()),
         "openai": list(openai_models),
         "deepseek": list(deepseek_models),
         "ollama": list(ollama_models),
@@ -631,6 +724,7 @@ __all__ = [
     'generate_content_vllm', 
     'generate_content_gemini',
     'generate_content_bedrock', 
+    'generate_content_claude_api',
     'generate_content_openai',
     'generate_content_ollama',
     'generate_content_deepseek',
@@ -640,6 +734,7 @@ __all__ = [
     'generate_content_vllm_with_retry',
     'generate_content_gemini_with_retry',
     'generate_content_bedrock_with_retry',
+    'generate_content_claude_api_with_retry',
     'generate_content_openai_with_retry',
     'generate_content_ollama_with_retry',
     'generate_content_deepseek_with_retry',
@@ -659,7 +754,8 @@ __all__ = [
     
     # Model metadata
     'vllm_api_meta',
-    'bedrock_meta', 
+    'bedrock_meta',
+    'claude_api_models',
     'gemini_models',
     'openai_models',
     'deepseek_models',
